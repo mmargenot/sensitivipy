@@ -223,6 +223,7 @@ class Doc2VecBuilder:
             self.d2v.save(self.data.data_dir+filename)
         else:
             raise ValueError("Need to build your Doc2Vec model first!")
+            
     def load_d2v(self, filename='d2v_model'):
         try:
             self.d2v = Doc2Vec.load(self.data.data_dir+filename)
