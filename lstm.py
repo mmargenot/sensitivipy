@@ -13,6 +13,9 @@ class _InnerLSTM:
     
     Parameters
     ----------
+    vocabulary : Vocabulary, optional
+        The vocabulary used to pretrain the embedding layer. Include if you want
+        to pretrain for better results.
     sequence_length : int
         The maximum length of a given sequence of words in a document. Data is
         padded to fit this shape.
@@ -24,8 +27,6 @@ class _InnerLSTM:
         The sizes of all layers.
     dropout : float
         The dropout ratio.
-    embedding_matrix : np.array[float, float], optional 
-        A pre-trained matrix for word embedding weights. Use this if you want to pretrain the model
         with word vectors for increased accuracy from the beginning.
     inner_activation : str
         The activation function of the hidden layers. Must be one of:
@@ -47,12 +48,12 @@ class _InnerLSTM:
     """
     def __init__(self,
                  *,
+                 vocabulary=None,
                  max_features=50000
                  embedding_dim=100,
                  batch_size=32,
                  layer_sizes=(64, 128, 64),
                  dropout=0.1,
-                 embedding_matrix=None,
                  inner_activation='tanh',
                  outer_activation='sigmoid',
                  loss='binary_crossentropy',
@@ -66,23 +67,19 @@ class _InnerLSTM:
         self._embedding_dim = embedding_dim
         
         self._batch_size = batch_size
-        
+       
         if len(layer_sizes) < 3:
             raise ValueError('there must be at least one hidden layer')
 
-        if embedding_matrix and not (embedding_matrix.shape == (max_features+1, embedding_dim))
-            raise ValueError(
-                'embedding matrix is not the correct shape.expected {0} and got {1}'.format(
-                    (max_features+1, embedding_dim), (embedding_matrix.shape)
-                )
-        
         input_ = keras.layers.Input(shape=(sequence_length,))
         
-        if embedding_matrix:
+        if vocabulary:
+            if not vocabulary.embedding_dim == embedding_dim:
+                raise ValueError('embedding dimension not the same as vocabulary embedding dimension')
             embedding_layer = keras.layers.Embedding(
                 max_features+1,
                 embedding_dim,
-                weights=[embedding_matrix],
+                weights=[vocabulary.embedding_matrix],
                 input_length=sequence_length,
                 trainable=False)
             )(input_)
@@ -136,8 +133,7 @@ class _InnerLSTM:
         pass
         
     def save_path(self, path):
-        self._model.save(path)
-        # save other things
+        self._model.save_path(path / 'lstm')
         
     @classmethod
     def load_path(cls, path):
@@ -161,15 +157,10 @@ class SentimentLSTM(SentimentModel):
         The n most significant word vectors in the space.
     embedding_dim : int
         The size of the word embeddings for each word in the corpus.
-    embedding_matrix : np.array[float, float], optional
-        A pre-trained matrix for word embedding weights.
     layer_sizes : tuple[int, int]
         The sizes of all layers.
     dropout : float
         The dropout ratio.
-    embedding_matrix : np.array[float, float], optional 
-        A pre-trained matrix for word embedding weights. Use this if you want to pretrain the model
-        with word vectors for increased accuracy from the beginning.
     inner_activation : str
         The activation function of the hidden layers. Must be one of:
         'tanh', 'softplus, 'softsign', 'relu', 'sigmoid', 'hard_sigmoid', or
@@ -188,16 +179,22 @@ class SentimentLSTM(SentimentModel):
     Notes
     -----
     """
+    version = 0
     
     def __init__(self, name, *args, **kwargs):
         self._name = name
+        if vocabulary:
+            self._vocabulary = vocabulary
         self._model = _InnerLSTM(*args, **kwargs)
         
     def save_path(self, path):
-        path = pathlib.Path(path)
+        name = self._name
+        path = pathlib.Path(path, name)
         path.mkdir(exist_ok=True)
-        
-        self._model.save_path(path / 'lstm' / self._name)
+        (path / 'version').write_text(str(self.version))
+        self._model.save_path(path / name)
+        if self._vocabulary:
+            self._vocabulary.save_path(path / name / 'vocabulary')
     
     @classmethod
     def load_path(cls, path):
@@ -205,7 +202,8 @@ class SentimentLSTM(SentimentModel):
         
         self= cls()
         self._name = path.name()
-        self._model = _InnerLSTM.load_path(path)
+        self._model = _InnerLSTM.load_path(path+'lstm')
+        self._vocabulary = Vocabulary.load_path(path+'vocabulary')
         return self
     
     def fit(self, corpus, *, validation_split=0.20, epochs=10, verbose=False):
