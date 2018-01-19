@@ -3,9 +3,10 @@ import pathlib
 
 import keras
 import numpy as np
+from sklearn.model_selection import train_test_split
 
-from .model import SentimentModel
-# from .utils import
+from model import SentimentModel, Vocabulary
+#from .utils import
 
 
 class _InnerLSTM:
@@ -49,8 +50,9 @@ class _InnerLSTM:
     def __init__(self,
                  *,
                  vocabulary=None,
-                 max_features=50000
+                 max_features=50000,
                  embedding_dim=100,
+                 sequence_length=70,
                  batch_size=32,
                  layer_sizes=(64, 128, 64),
                  dropout=0.1,
@@ -60,7 +62,7 @@ class _InnerLSTM:
                  metrics=['accuracy'],
                  optimizer='rmsprop'):
         
-        if len(embedding_dim) < 1:
+        if embedding_dim < 1:
             raise ValueError('word embeddings must be at least 1-dimensional')
         
         self._max_features = max_features
@@ -74,14 +76,14 @@ class _InnerLSTM:
         input_ = keras.layers.Input(shape=(sequence_length,))
         
         if vocabulary:
-            if not vocabulary.embedding_dim == embedding_dim:
+            if not vocabulary.size == embedding_dim:
                 raise ValueError('embedding dimension not the same as vocabulary embedding dimension')
             embedding_layer = keras.layers.Embedding(
                 max_features+1,
                 embedding_dim,
                 weights=[vocabulary.embedding_matrix],
                 input_length=sequence_length,
-                trainable=False)
+                trainable=False
             )(input_)
         else:
             embedding_layer = keras.layers.Embedding(
@@ -126,14 +128,22 @@ class _InnerLSTM:
             optimizer=optimizer,
         )
         
-    def fit(self, corpus, *, validation_split=0.20, epochs=10, verbose=False):
-        pass
+    def fit(self, corpus, sentiment, *, validation_split=0.20, epochs=10, verbose=False):
+        x_train, x_test, y_train, y_test = train_test_split(corpus,
+                                                            sentiment,
+                                                            test_size=validation_split)
+
+        self._model.fit(x_train,
+                        y_train,
+                        validation_set=(x_test, y_test),
+                        nb_epoch=epochs,
+                        verbose=verbose)
         
-    def predict_one(self, document):
+    def predict_one(self, phrase):
         pass
         
     def save_path(self, path):
-        self._model.save_path(path / 'lstm')
+        self._model.save(path/'lstm')
         
     @classmethod
     def load_path(cls, path):
@@ -148,8 +158,6 @@ class SentimentLSTM(SentimentModel):
     
     Parameters
     ----------
-    name : str
-        The name of the model.
     sequence_length : int
         The maximum length of a given sequence of words in a document. Data is
         padded to fit this shape.
@@ -181,38 +189,80 @@ class SentimentLSTM(SentimentModel):
     """
     version = 0
     
-    def __init__(self, name, *args, **kwargs):
-        self._name = name
-        if vocabulary:
-            self._vocabulary = vocabulary
+    def __init__(self, w2v=None, *args, **kwargs):
+        if w2v:
+            self._vocabulary = SentimentVocab(w2v)
+        else:
+            self._vocabulary = None
         self._model = _InnerLSTM(*args, **kwargs)
         
     def save_path(self, path):
-        name = self._name
-        path = pathlib.Path(path, name)
+        path = pathlib.Path(path)
         path.mkdir(exist_ok=True)
-        (path / 'version').write_text(str(self.version))
-        self._model.save_path(path / name)
+        (path/'version').write_text(str(self.version))
+        self._model.save_path(path)
         if self._vocabulary:
-            self._vocabulary.save_path(path / name / 'vocabulary')
+            self._vocabulary.save_path(path/'vocabulary'),
     
     @classmethod
     def load_path(cls, path):
         path = pathlib.Path(path)
         
         self= cls()
-        self._name = path.name()
         self._model = _InnerLSTM.load_path(path+'lstm')
-        self._vocabulary = Vocabulary.load_path(path+'vocabulary')
+        try:
+            self._vocabulary = Vocabulary.load_path(path+'vocabulary')
+        except FileNotFoundError:
+            self._vocabulary = None
         return self
     
-    def fit(self, corpus, *, validation_split=0.20, epochs=10, verbose=False):
-        # Make a w2v model and fit it here
-        pass
+    def fit(self, corpus, sentiment, *, validation_split=0.20, epochs=10, verbose=False):
+        self._model.fit(corpus,
+                        sentiment,
+                        validation_split=validation_split,
+                        epochs=epochs,
+                        verbose=False)
     
-    def predict(self, documents_and_chars):
-        pass
+    def predict(self, phrases):
+        model = self._model
+        predictions = []
+        # check dims
+
+        # call model.predict_one for each phrase
+
+        return predictions
     
     def predict_proba(self, documents_and_chars):
         pass
-        
+
+class SentimentVocab(Vocabulary):
+    """Vocabulary object for holding a Word2Vec on Twitter data
+
+    Parameters
+    ----------
+    w2v : Word2Vec
+        The vector representation of the twitter corpus
+
+    Notes
+    -----
+    """
+    def __init__(self, w2v):
+        self._w2v = w2v
+        # create tokenizer
+        # create embedding matrix
+
+    def save_path(self, path):
+        path = pathlib.Path(path)
+        self._w2v.save(path/'w2v')
+        # save embedding matrix
+        # save tokenizer
+
+    @classmethod
+    def load_path(cls, path):
+        path = pathlib.Path(path)
+
+        self = cls()
+        self._w2v = Word2Vec.load(path+'w2v')
+        # load embedding matrix
+        # load tokenizer
+
