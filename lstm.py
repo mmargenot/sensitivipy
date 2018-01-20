@@ -49,7 +49,7 @@ class _InnerLSTM:
     def __init__(self,
                  *,
                  vocabulary=None,
-                 max_features=50000
+                 max_features=50000,
                  embedding_dim=100,
                  batch_size=32,
                  layer_sizes=(64, 128, 64),
@@ -81,7 +81,7 @@ class _InnerLSTM:
                 embedding_dim,
                 weights=[vocabulary.embedding_matrix],
                 input_length=sequence_length,
-                trainable=False)
+                trainable=False
             )(input_)
         else:
             embedding_layer = keras.layers.Embedding(
@@ -181,7 +181,7 @@ class SentimentLSTM(SentimentModel):
     """
     version = 0
     
-    def __init__(self, name, *args, **kwargs):
+    def __init__(self, name, *args, vocabulary=None,  **kwargs):
         self._name = name
         if vocabulary:
             self._vocabulary = vocabulary
