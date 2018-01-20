@@ -209,9 +209,9 @@ class SentimentLSTM(SentimentModel):
         path = pathlib.Path(path)
         
         self= cls()
-        self._model = _InnerLSTM.load_path(path+'lstm')
+        self._model = _InnerLSTM.load_path(path/'lstm')
         try:
-            self._vocabulary = Vocabulary.load_path(path+'vocabulary')
+            self._vocabulary = Vocabulary.load_path(path/'vocabulary')
         except FileNotFoundError:
             self._vocabulary = None
         return self
@@ -236,20 +236,34 @@ class SentimentLSTM(SentimentModel):
         pass
 
 class SentimentVocab(Vocabulary):
-    """Vocabulary object for holding a Word2Vec on Twitter data
+    """Vocabulary object for holding a Word2Vec on Twitter data. Used
+    if we want to pretrain the LSTM embedding layer
 
     Parameters
     ----------
     w2v : Word2Vec
         The vector representation of the twitter corpus
+    corpus : DataFrame
+        Texts
+    max_words : int, optional
+        The number of most common words to work with
 
     Notes
     -----
     """
-    def __init__(self, w2v):
+    def __init__(self, w2v, corpus, max_words=None):
         self._w2v = w2v
         # create tokenizer
+        sequence_tokenizer = keras.preprocessing.text.Tokenizer(num_words=max_words)
+        sequence_tokenizer.fit_on_texts(corpus)
+        sequences = sequence_tokenizer.texts_to_sequences(corpus)
+
+        self._sequence_tokenizer = sequence_tokenizer
         # create embedding matrix
+        word_index = sequence_tokenizer.word_index
+        embedding_matrix = np.zeros((len(word_index)+1, w2v.size))
+
+        self._embedding_matrix = embedding_matrix
 
     def save_path(self, path):
         path = pathlib.Path(path)
@@ -262,7 +276,7 @@ class SentimentVocab(Vocabulary):
         path = pathlib.Path(path)
 
         self = cls()
-        self._w2v = Word2Vec.load(path+'w2v')
+        self._w2v = Word2Vec.load(path/'w2v')
         # load embedding matrix
         # load tokenizer
 
