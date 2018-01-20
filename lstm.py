@@ -67,6 +67,7 @@ class _InnerLSTM:
         
         self._max_features = max_features
         self._embedding_dim = embedding_dim
+        self._sequence_length = sequence_length
         
         self._batch_size = batch_size
        
@@ -129,6 +130,7 @@ class _InnerLSTM:
         )
         
     def fit(self, corpus, sentiment, *, validation_split=0.20, epochs=10, verbose=False):
+        # corpus needs to be 
         x_train, x_test, y_train, y_test = train_test_split(corpus,
                                                             sentiment,
                                                             test_size=validation_split)
@@ -217,11 +219,29 @@ class SentimentLSTM(SentimentModel):
         return self
     
     def fit(self, corpus, sentiment, *, validation_split=0.20, epochs=10, verbose=False):
-        self._model.fit(corpus,
+        # preprocess corpus into sequences of tokens
+        sequence_length = self._model._sequence_length
+        if self._vocabulary:
+            sequence_tokenizer = self._vocabulary._sequence_tokenizer
+            processed_corpus = sequence_tokenizer.texts_to_sequences(corpus)
+        # otherwise need to tokenize and pad, pass in tokens
+        else:
+            sequence_tokenizer = keras.preprocessing.text.Tokenizer(
+                maxlen=sequence_length
+            )
+            sequence_tokenizer.fit_on_texts(corpus)
+            processed_corpus = sequence_tokenizer.texts_to_sequences(corpus)
+        self._sequence_tokenizer = sequence_tokenizer
+        # pass the processed corpus into the LSTM
+        processed_corpus = keras.preprocessing.text.pad_sequences(
+            processed_corpus,
+            maxlen=sequence_length
+        )
+        self._model.fit(processed_corpus,
                         sentiment,
                         validation_split=validation_split,
                         epochs=epochs,
-                        verbose=False)
+                        verbose=verbose)
     
     def predict(self, phrases):
         model = self._model
@@ -230,7 +250,7 @@ class SentimentLSTM(SentimentModel):
 
         # call model.predict_one for each phrase
 
-        return predictions
+        return np.array(predictions)
     
     def predict_proba(self, documents_and_chars):
         pass
