@@ -112,3 +112,34 @@ class SentimentModel(metaclass=ABCMeta):
 #            (Document, characteristics) pair.
 #        """
 #        raise NotImplementedError('predict_proba')
+
+class Vocabulary(metaclass=ABCMeta):
+    """Abstract vocabulary
+    """
+    @abstractmethod
+    def save_path(self, path):
+        """Save the model to a file path.
+        
+        Parameters
+        ----------
+        path : path-like
+            The path to save the model to.
+        """
+        raise NotImplementedError('save_path')
+
+    @classmethod
+    @abstractmethod
+    def load_path(cls, path):
+        """Load a model from a file path
+        
+        Parameters
+        ----------
+        path : path-like
+            The path to the saved model.
+        
+        Returns
+        -------
+        model : SentimentModel
+            The deserialized sentiment model.
+        """
+
