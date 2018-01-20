@@ -68,6 +68,12 @@ class _InnerLSTM:
         self._max_features = max_features
         self._embedding_dim = embedding_dim
         self._sequence_length = sequence_length
+
+        self._dims = {
+            'max_features' = max_features,
+            'embedding_dim' = embedding_dim,
+            'sequence_length' = sequence_length
+        }
         
         self._batch_size = batch_size
        
@@ -146,12 +152,14 @@ class _InnerLSTM:
         
     def save_path(self, path):
         self._model.save(path/'lstm')
+        # save dims
         
     @classmethod
     def load_path(cls, path):
         self = cls()
         self._model = keras.models.load_model(path)
         # load other things
+        # load dims
             
         return self
 
@@ -210,7 +218,7 @@ class SentimentLSTM(SentimentModel):
     def load_path(cls, path):
         path = pathlib.Path(path)
         
-        self= cls()
+        self = cls()
         self._model = _InnerLSTM.load_path(path/'lstm')
         try:
             self._vocabulary = Vocabulary.load_path(path/'vocabulary')
@@ -290,6 +298,7 @@ class SentimentVocab(Vocabulary):
         self._w2v.save(path/'w2v')
         # save embedding matrix
         # save tokenizer
+        # save dims
 
     @classmethod
     def load_path(cls, path):
@@ -299,4 +308,5 @@ class SentimentVocab(Vocabulary):
         self._w2v = Word2Vec.load(path/'w2v')
         # load embedding matrix
         # load tokenizer
+        # load dims
 
