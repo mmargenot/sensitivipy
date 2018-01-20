@@ -4,7 +4,7 @@ import pathlib
 import keras
 import numpy as np
 
-from .model import SentimentModel
+from model import SentimentModel
 # from .utils import
 
 
