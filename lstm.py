@@ -189,18 +189,11 @@ class SentimentLSTM(SentimentModel):
     """
     version = 0
     
-<<<<<<< HEAD
-    def __init__(self, name, *args, vocabulary=None,  **kwargs):
-        self._name = name
-        if vocabulary:
-            self._vocabulary = vocabulary
-=======
     def __init__(self, w2v=None, *args, **kwargs):
         if w2v:
             self._vocabulary = SentimentVocab(w2v)
         else:
             self._vocabulary = None
->>>>>>> b8074c42c3719e6040461f781d5af394c93960de
         self._model = _InnerLSTM(*args, **kwargs)
         
     def save_path(self, path):
